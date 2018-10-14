@@ -1,0 +1,9 @@
+Package: com.junesiphone.weatheranimations
+Name: LS Weather Animations
+Depends: mobilesubstrate
+Version: 0.0.3
+Architecture: iphoneos-arm
+Description: LS Weather Animations
+Maintainer: JunesiPhone
+Author: JunesiPhone
+Section: Tweaks
