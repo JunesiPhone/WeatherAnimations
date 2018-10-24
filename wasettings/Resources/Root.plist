@@ -48,6 +48,20 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>defaults</key>
+			<string>com.junesiphone.weatheranimation</string>
+			<key>key</key>
+			<string>hideonnotification</string>
+			<key>default</key>
+			<false/>
+			<key>label</key>
+			<string>Hide on notification</string>
+			<key>PostNotification</key>
+			<string>com.junesiphone.weatheranimation/preferences.changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
 			<string>© JunesiPhone 2018</string>

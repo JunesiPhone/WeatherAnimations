@@ -16,9 +16,11 @@ static NSString *nsDomainString = @"com.junesiphone.weatheranimation";
 static NSString *nsNotificationString = @"com.junesiphone.weatheranimation/preferences.changed";
 static bool enabled = NO;
 static bool hideBG = NO;
+static bool hideonnotification = NO;
 
 static WUIDynamicWeatherBackground* dynamicBG = nil;
 static WUIWeatherCondition* condition = nil;
+static UIView* weatherAnimation = nil;
 static bool Loaded = NO;
 
 void loadWeatherAnimation(){
@@ -28,7 +30,8 @@ void loadWeatherAnimation(){
 
 	if(!Loaded){
 	    if(city){
-		    UIView *weatherAnimation = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
+		    weatherAnimation = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
+				weatherAnimation.clipsToBounds = YES;
 			WUIWeatherConditionBackgroundView *referenceView = [[%c(WUIWeatherConditionBackgroundView) alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
 			dynamicBG = [referenceView background];
 			condition = [dynamicBG condition];
@@ -36,21 +39,19 @@ void loadWeatherAnimation(){
 			[weatherAnimation addSubview:dynamicBG];
 			[dynamicBG setCity: city];
 			SBLockScreenManager *manager = [%c(SBLockScreenManager) sharedInstance];
-			UIView *scrollView = nil;
 
 			if([manager isUILocked]){
 				if (manager != nil) {
 					SBLockScreenViewController* lockViewController = MSHookIvar<SBLockScreenViewController*>([%c(SBLockScreenManager) sharedInstance], "_lockScreenViewController");
 			     	UIView* lockView = MSHookIvar<SBLockScreenView*>(lockViewController, "_view");
 			     	if([lockView isKindOfClass:[%c(SBDashBoardView) class]]){
-			     		scrollView = MSHookIvar<SBDashBoardView*>(lockView, "_mainPageView");
+			     		UIView *scrollView = MSHookIvar<SBDashBoardView*>(lockView, "_backgroundView");
+			     		[scrollView addSubview:weatherAnimation];
+						[scrollView sendSubviewToBack:weatherAnimation];
+						Loaded = YES;
 			     	}
 				}
 			}
-
-			[scrollView addSubview:weatherAnimation];
-			[scrollView sendSubviewToBack:weatherAnimation];
-			Loaded = YES;
 		}
 	}else{
 		if(city){
@@ -65,6 +66,23 @@ void pauseAnimation(){
 	[condition pause];
 }
 
+/* Hide weather on notification */
+%hook SBDashBoardCombinedListViewController
+- (void)_setListHasContent:(_Bool)arg1{
+	%orig;
+	if(hideonnotification){
+		if(arg1 == YES){
+			weatherAnimation.hidden = YES;
+			[condition pause];
+		}else{
+			weatherAnimation.hidden = NO;
+			[condition resume];
+		}
+	}
+}
+%end
+
+
 /* 
 	ON iOS 11.3 you can just return nil on gradientLayer to drop the background
 	iOS 11.1.2 you need to get the layer that has a background color
@@ -76,6 +94,12 @@ void pauseAnimation(){
 			return nil;
 		}
 		return %orig;
+	}
+	-(void)setCurrentBackground:(CALayer *)arg1{
+
+	}
+	-(void)setBackgroundCache:(NSCache *)arg1{
+		
 	}
 	/* 11.1.2 Still nees improving */ 
 	-(void)addSublayer:(id)arg1{
@@ -158,8 +182,10 @@ static void respring() {
 static void notificationCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSNumber *en = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"enabled" inDomain:nsDomainString];
     NSNumber *hide = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"hidebg" inDomain:nsDomainString];
+    NSNumber *hidenotify = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"hideonnotification" inDomain:nsDomainString];
     enabled = (en) ? [en boolValue] : NO;
     hideBG = (hide) ? [hide boolValue] : NO;
+    hideonnotification = (hidenotify) ? [hidenotify boolValue] : NO;
 }
 
 
