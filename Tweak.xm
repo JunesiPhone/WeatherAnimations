@@ -1,14 +1,21 @@
 #import "headers.h"
 
 /* 
+	Sharing: Feel free to use this code, give credit in your projects and promotions.
+	License will allow you to create your own builds for personal or commercial use, you must provide
+	source code to the public.
+
+	Contributing: I share this code to show what i've found and to learn from. If you find something that can
+	improved please contact me or make a pull request. Would love to improve this and both us learned something.
+
 	Todo 
 	Find another way to hide bg on 11.1.2
 	Could create a global init function
-	Create better settings icon
 
 	Issues: 
 		11.1.2: 
-			BG comes back after conditions change
+			BG comes back after conditions change only (iPX) and rarely happens
+
 */
 
 static float deviceVersion = [[[UIDevice currentDevice] systemVersion] floatValue];
@@ -17,60 +24,97 @@ static NSString *nsNotificationString = @"com.junesiphone.weatheranimation/prefe
 static bool enabled = NO;
 static bool hideBG = NO;
 static bool hideonnotification = NO;
+static bool showonsb = NO;
+static bool showonls = NO;
+static bool showaboveXen = NO;
 
 static WUIDynamicWeatherBackground* dynamicBG = nil;
 static WUIWeatherCondition* condition = nil;
 static UIView* weatherAnimation = nil;
-static bool Loaded = NO;
+static SBHomeScreenView* HSView;
+static bool loaded = NO;
 
-void loadWeatherAnimation(){
 
+void applyCityToDynamicBG(){
+	/* Could refresh weather here but for battery we will rely on the system */
 	WeatherPreferences* prefs = [%c(WeatherPreferences) sharedPreferences];
     City* city = [prefs localWeatherCity];
+    if(city){
+    	[dynamicBG setCity: city];
+    }
+}
 
-	if(!Loaded){
-	    if(city){
-		    weatherAnimation = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
-				weatherAnimation.clipsToBounds = YES;
-			WUIWeatherConditionBackgroundView *referenceView = [[%c(WUIWeatherConditionBackgroundView) alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
-			dynamicBG = [referenceView background];
-			condition = [dynamicBG condition];
-			[condition resume];
-			[weatherAnimation addSubview:dynamicBG];
-			[dynamicBG setCity: city];
-			SBLockScreenManager *manager = [%c(SBLockScreenManager) sharedInstance];
-
-			if([manager isUILocked]){
-				if (manager != nil) {
-					SBLockScreenViewController* lockViewController = MSHookIvar<SBLockScreenViewController*>([%c(SBLockScreenManager) sharedInstance], "_lockScreenViewController");
-			     	UIView* lockView = MSHookIvar<SBLockScreenView*>(lockViewController, "_view");
-			     	if([lockView isKindOfClass:[%c(SBDashBoardView) class]]){
-			     		UIView *scrollView = MSHookIvar<SBDashBoardView*>(lockView, "_backgroundView");
-			     		[scrollView addSubview:weatherAnimation];
-						[scrollView sendSubviewToBack:weatherAnimation];
-						Loaded = YES;
-			     	}
-				}
+void moveToLockscreen(){
+	if(showonls){
+		SBLockScreenManager *manager = [%c(SBLockScreenManager) sharedInstance];
+		if([manager isUILocked]){
+			if (manager != nil) {
+				SBLockScreenViewController* lockViewController = MSHookIvar<SBLockScreenViewController*>([%c(SBLockScreenManager) sharedInstance], "_lockScreenViewController");
+		     	UIView* lockView = MSHookIvar<SBLockScreenView*>(lockViewController, "_view");
+		     	if([lockView isKindOfClass:[%c(SBDashBoardView) class]]){
+		     		UIView *scrollView = MSHookIvar<SBDashBoardView*>(lockView, "_backgroundView");
+		     		[scrollView addSubview:weatherAnimation];
+					[scrollView sendSubviewToBack:weatherAnimation];
+		     	}
 			}
 		}
-	}else{
-		if(city){
-			[dynamicBG setCity: city];
-		}
+		applyCityToDynamicBG();
 		[condition resume];
 	}
 }
 
-/* remove view from screen */
+void moveToSpringBoard(){
+	if(![HSView viewWithTag:982]){
+		[HSView addSubview:weatherAnimation];
+	}
+	if(!showaboveXen){
+		[HSView sendSubviewToBack:weatherAnimation];
+	}
+	applyCityToDynamicBG();
+	[condition resume];
+}
+
+/* pause animation */
 void pauseAnimation(){
 	[condition pause];
 }
+
+/* initialize a background view */
+void loadWeatherAnimation(){
+
+	if(!showonsb && !showonls){
+		return;
+	}
+
+	if(!loaded){
+	    weatherAnimation = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
+		weatherAnimation.clipsToBounds = YES;
+		weatherAnimation.tag = 982;
+		weatherAnimation.userInteractionEnabled = NO;
+		WUIWeatherConditionBackgroundView *referenceView = [[%c(WUIWeatherConditionBackgroundView) alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height)];
+		dynamicBG = [referenceView background];
+		condition = [dynamicBG condition];
+		[condition resume];
+		[weatherAnimation addSubview:dynamicBG];
+		applyCityToDynamicBG();
+		moveToLockscreen(); //on initial load set to lockscreen
+		loaded = YES;
+	}
+}
+
+/* get homescreen view */
+%hook SBHomeScreenView
+	-(void)setFrame:(CGRect)arg1{
+		HSView = self;
+		%orig;
+	}
+%end
 
 /* Hide weather on notification */
 %hook SBDashBoardCombinedListViewController
 - (void)_setListHasContent:(_Bool)arg1{
 	%orig;
-	if(hideonnotification){
+	if(hideonnotification && enabled){
 		if(arg1 == YES){
 			weatherAnimation.hidden = YES;
 			[condition pause];
@@ -81,7 +125,6 @@ void pauseAnimation(){
 	}
 }
 %end
-
 
 /* 
 	ON iOS 11.3 you can just return nil on gradientLayer to drop the background
@@ -132,7 +175,7 @@ void pauseAnimation(){
 			if(arg1){
 				pauseAnimation();
 			}else{
-				loadWeatherAnimation();
+				moveToLockscreen();
 			}
 		}
 	}
@@ -142,7 +185,7 @@ void pauseAnimation(){
 %hook SBLockScreenManager
 	- (void)lockScreenViewControllerDidDismiss{
 		%orig;
-		if(enabled){
+		if(enabled && !showonsb){
 			pauseAnimation();
 		}
 	}
@@ -152,7 +195,7 @@ void pauseAnimation(){
 %hook SBCoverSheetPresentationManager
 	- (void)_relinquishHomeGesture{
 		%orig;
-		if(enabled){
+		if(enabled && !showonsb){
 			pauseAnimation();
 		}
 	}
@@ -163,8 +206,18 @@ void pauseAnimation(){
 -(void)applicationDidFinishLaunching:(id)application{
     %orig;
     if(enabled){
-    	loadWeatherAnimation();
+    	/* give weather time to initiate */
+    	dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 4);
+		dispatch_after(delay, dispatch_get_main_queue(), ^(void){
+		    loadWeatherAnimation();
+		});
     }
+}
+- (_Bool)isShowingHomescreen{
+	if(showonsb){
+		moveToSpringBoard();
+	}
+	return %orig;
 }
 %end
 
@@ -181,9 +234,15 @@ static void respring() {
 /* settings callback */
 static void notificationCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     NSNumber *en = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"enabled" inDomain:nsDomainString];
+    NSNumber *onls = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"showonls" inDomain:nsDomainString];
+    NSNumber *onsb = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"showonsb" inDomain:nsDomainString];
+    NSNumber *abovexen = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"showabovexen" inDomain:nsDomainString];
     NSNumber *hide = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"hidebg" inDomain:nsDomainString];
     NSNumber *hidenotify = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"hideonnotification" inDomain:nsDomainString];
     enabled = (en) ? [en boolValue] : NO;
+    showonls = (onls) ? [onls boolValue] : NO;
+    showonsb = (onsb) ? [onsb boolValue] : NO;
+    showaboveXen = (abovexen) ? [abovexen boolValue] : NO;
     hideBG = (hide) ? [hide boolValue] : NO;
     hideonnotification = (hidenotify) ? [hidenotify boolValue] : NO;
 }

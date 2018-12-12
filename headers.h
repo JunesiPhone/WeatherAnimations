@@ -67,3 +67,9 @@
   -(id)_accessibilityFrontMostApplication;
   -(void)clearMenuButtonTimer;
 @end
+
+/* springboard */
+
+@interface SBHomeScreenView : UIView
+-(void)setFrame:(CGRect)arg1;
+@end
