@@ -1,4 +1,5 @@
 #import "headers.h"
+#import "weather.h"
 
 /* 
 	Sharing: Feel free to use this code, give credit in your projects and promotions.
@@ -33,15 +34,34 @@ static WUIWeatherCondition* condition = nil;
 static UIView* weatherAnimation = nil;
 static SBHomeScreenView* HSView;
 static bool loaded = NO;
+static WATodayAutoupdatingLocationModel* todayModel = nil;
+static NSDate * lastUpdateTime;
 
-
+/* todo add check for last update to stop updating if not needed */
 void applyCityToDynamicBG(){
+		// since this tweak runs on iOS11 we can use Matchstics method (used in XenInfo) to get the current city
+		// much nicer implementation then anything i've seen. Huge shoutout and thanks to him for his work
+		// Twitter: https://twitter.com/_Matchstic
+		// Github: https://github.com/Matchstic
+		WeatherPreferences *preferences = [%c(WeatherPreferences) sharedPreferences];
+		if(!todayModel){
+			todayModel = [%c(WATodayModel) autoupdatingLocationModelWithPreferences:preferences effectiveBundleIdentifier:@"com.apple.weather"];
+		}
+		[todayModel setLocationServicesActive:YES];
+		[todayModel setIsLocationTrackingEnabled:YES];
+		[todayModel executeModelUpdateWithCompletion:^(BOOL arg1, NSError *arg2) {
+			if(todayModel.forecastModel.city){
+				[dynamicBG setCity: todayModel.forecastModel.city];
+				[todayModel setIsLocationTrackingEnabled:NO];
+				lastUpdateTime = todayModel.forecastModel.city.updateTime;
+			}
+		}];
 	/* Could refresh weather here but for battery we will rely on the system */
-	WeatherPreferences* prefs = [%c(WeatherPreferences) sharedPreferences];
-    City* city = [prefs localWeatherCity];
-    if(city){
-    	[dynamicBG setCity: city];
-    }
+	// WeatherPreferences* prefs = [%c(WeatherPreferences) sharedPreferences];
+ 	// City* city = [prefs localWeatherCity];
+ 	// if(city){
+ 	//    [dynamicBG setCity: city];
+ 	// }
 }
 
 void moveToLockscreen(){
