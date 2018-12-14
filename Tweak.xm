@@ -214,6 +214,30 @@ void loadWeatherAnimation(){
 	}
 %end
 
+/* iOS 11.1.2 background showing fix */
+%hook WUIWeatherCondition
+	-(CALayer *)layer{
+		if(hideBG && enabled){
+			if(deviceVersion < 11.3){
+				CALayer* layer = %orig;
+				for(CALayer* firstLayers in layer.sublayers){
+					if(firstLayers.backgroundColor){
+						firstLayers.backgroundColor = [UIColor clearColor].CGColor;
+					}
+					for(CALayer* secLayers in firstLayers.sublayers){
+						for(CALayer* thrLayers in secLayers.sublayers){
+							if(![thrLayers isKindOfClass:[CAEmitterLayer class]]){
+								thrLayers.hidden = YES;
+							}
+						}
+					}
+				}
+			}
+		}
+		return %orig;
+	}
+%end
+
 /* when device goes to sleep */
 %hook SBLockScreenViewControllerBase
 	- (void)setInScreenOffMode:(_Bool)arg1 forAutoUnlock:(_Bool)arg2{

@@ -12,7 +12,7 @@
 }
 
 -(NSArray *)conditionTitles {
-    NSArray *name = @[@"Tornado", @"Tropical Storm", @"Hurricane", @"Severe Thunderstorms", @"Thunderstorms", @"Mixed rain and snow", @"Mixed rain and sleet", @"Mixed snow and sleet", @"Freezing drizzle", @"Drizzle", @"Freezing rain", @"Showers1", @"Showers2", @"Snow flurries", @"Light snow showers", @"Blowing snow", @"Snow", @"Hail", @"Sleet", @"Dust", @"Foggy", @"Haze", @"Smoky", @"Blustery", @"Windy", @"Cold", @"Cloudy", @"Mostly cloudy night", @"Mostly cloudy day", @"Partly cloudy night", @"Partly cloudy day", @"Clear night", @"Sunny", @"Fair night", @"Fair day", @"Mixed rain and hail", @"Hot", @"Isolated thunderstorms", @"Scattered thunderstorms", @"Scattered thunderstorms2", @"Scattered showers", @"Heavy snow", @"Scattered snow showers", @"Heavy snow2", @"Partly Cloudy", @"Thunderstorms", @"Snow Showers", @"Isolated thunderstorms2"];
+    NSArray *name = @[@"Tornado", @"Tropical Storm", @"Hurricane", @"Severe Thunderstorms", @"Thunderstorms", @"Mixed rain and snow", @"Mixed rain and sleet", @"Mixed snow and sleet", @"Freezing drizzle", @"Drizzle", @"Freezing rain", @"Showers1", @"Showers2", @"Snow flurries", @"Light snow showers", @"Blowing snow", @"Snow", @"Hail", @"Sleet", @"Dust", @"Foggy", @"Haze", @"Smoky", @"Blustery", @"Windy", @"Cold", @"Cloudy", @"Mostly cloudy night", @"Mostly cloudy day", @"Partly cloudy night", @"Partly cloudy day", @"Clear night", @"Sunny", @"Fair night", @"Fair day", @"Mixed rain and hail", @"Hot", @"Isolated thunderstorms", @"Scattered thunderstorms", @"Scattered thunderstorms2", @"Scattered showers", @"Heavy snow", @"Scattered snow showers", @"Heavy snow2", @"Partly Cloudy2", @"Thunderstorms2", @"Snow Showers", @"Isolated thunderstorms2"];
     return name;
 }
 
