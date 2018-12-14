@@ -104,6 +104,40 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>defaults</key>
+			<string>com.junesiphone.weatheranimation</string>
+			<key>key</key>
+			<string>usecondition</string>
+			<key>default</key>
+			<false/>
+			<key>label</key>
+			<string>Use manual condition</string>
+			<key>PostNotification</key>
+			<string>com.junesiphone.weatheranimation/preferences.changed</string>
+		</dict>
+		<dict>
+		    <key>cell</key>
+		    <string>PSLinkListCell</string>
+		    <key>detail</key>
+		    <string>PSListItemsController</string>
+		    <key>defaults</key>
+		    <string>com.junesiphone.weatheranimation</string>
+		    <key>key</key>
+		    <string>conditionType</string>
+		    <key>label</key>
+		    <string>Condition</string>
+		    <key>valuesDataSource</key>
+		    <string>conditionValues</string>
+		    <key>titlesDataSource</key>
+		    <string>conditionTitles</string>
+		    <key>default</key>
+		    <string>Snow</string>
+		    <key>PostNotification</key>
+		    <string>com.junesiphone.notificationsettings/preferences.changed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>footerText</key>
 			<string>© JunesiPhone 2018</string>

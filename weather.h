@@ -4,6 +4,7 @@
 @interface WUIWeatherCondition : NSObject
 -(void)pause;
 -(void)resume;
+-(void)setCondition:(long long)arg1;
 @end;
 
 @interface WUIDynamicWeatherBackground : UIView
