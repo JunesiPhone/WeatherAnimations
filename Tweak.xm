@@ -45,6 +45,7 @@ static bool loaded = NO;
 static WATodayAutoupdatingLocationModel* todayModel = nil;
 static NSDate * lastUpdateTime;
 static SBHomeScreenView* HSView;
+static int conditionNumberSet;
 
 /* 
 	Todo: add check for last update to stop updating if not needed 
@@ -58,24 +59,43 @@ static SBHomeScreenView* HSView;
 
 void applyCityToDynamicBG(){
 		WeatherPreferences *preferences = [%c(WeatherPreferences) sharedPreferences];
-		if(!todayModel){
+
+		if(!todayModel && !usecondition){
 			todayModel = [%c(WATodayModel) autoupdatingLocationModelWithPreferences:preferences effectiveBundleIdentifier:@"com.apple.weather"];
 		}
 
-		[todayModel setLocationServicesActive:YES];
-		[todayModel setIsLocationTrackingEnabled:YES];
-		[todayModel executeModelUpdateWithCompletion:^(BOOL arg1, NSError *arg2) {
-			if(todayModel.forecastModel.city){
-				[dynamicBG setCity: todayModel.forecastModel.city];
-				[todayModel setIsLocationTrackingEnabled:NO];
-				lastUpdateTime = todayModel.forecastModel.city.updateTime;
-				[condition resume];
-				if(usecondition){
-					[condition setCondition:conditionNumber];
+		/* If using a set condition no need to refresh weather */
+		if(usecondition){
+			City* city = [preferences localWeatherCity];
+			[dynamicBG setCity: city];
+			// if(deviceVersion >= 11.1 && deviceVersion < 11.3){
+			// 	if(conditionNumber == 3){
+			// 		//set thunderstorm instead of severe as severe has black artifacts on 11.1.2
+			// 		[condition setCondition:4];
+			// 		NSLog(@"WTest changed");
+			// 	}else{
+			// 		[condition setCondition:conditionNumber];
+			// 	}
+			// }else{
+			// 	[condition setCondition:conditionNumber];
+			// }
+			conditionNumberSet = conditionNumber;
+			[condition setCondition:conditionNumber];
+			[condition resume];
+		}else{
+			[todayModel setLocationServicesActive:YES];
+			[todayModel setIsLocationTrackingEnabled:YES];
+			[todayModel executeModelUpdateWithCompletion:^(BOOL arg1, NSError *arg2) {
+				if(todayModel.forecastModel.city){
+					conditionNumberSet = todayModel.forecastModel.currentConditions.conditionCode;
+					[dynamicBG setCity: todayModel.forecastModel.city];
+					//[condition setCondition:todayModel.forecastModel.currentConditions.conditionCode];
+					[todayModel setIsLocationTrackingEnabled:NO];
+					lastUpdateTime = todayModel.forecastModel.city.updateTime;
+					[condition resume];
 				}
-			}
-		}];
-		
+			}];
+		}
 }
 
 /* grabs background view of LS */
@@ -112,11 +132,11 @@ void moveToLockscreen(){
 void moveToSpringBoard(){
 	if(![HSView viewWithTag:982]){
 		[HSView addSubview:dynamicBG];
+		applyCityToDynamicBG();
 	}
 	if(!showaboveXen){
 		[HSView sendSubviewToBack:dynamicBG];
 	}
-	applyCityToDynamicBG();
 }
 
 /* pause animation to conserve battery*/
@@ -139,6 +159,7 @@ void loadWeatherAnimation(){
 		dynamicBG.tag = 982;
 		dynamicBG.userInteractionEnabled = NO;
 		condition = [dynamicBG condition];
+		[condition setAlpha: 982];
 		applyCityToDynamicBG();
 		moveToLockscreen(); //on initial load set to lockscreen
 		loaded = YES;
@@ -157,13 +178,18 @@ void loadWeatherAnimation(){
 %hook SBDashBoardCombinedListViewController
 - (void)_setListHasContent:(_Bool)arg1{
 	%orig;
+	if(enabled){
+		if(arg1 == YES){
+			[condition pause];
+		}else{
+			[condition resume];	
+		}
+	}
 	if(hideonnotification && enabled){
 		if(arg1 == YES){
 			dynamicBG.hidden = YES;
-			[condition pause];
 		}else{
 			dynamicBG.hidden = NO;
-			[condition resume];
 		}
 	}
 }
@@ -195,7 +221,7 @@ void loadWeatherAnimation(){
 	-(void)addSublayer:(id)arg1{
 		%orig;
 		if(hideBG && enabled){
-			if(deviceVersion < 11.3){
+			if(deviceVersion < 11.3 && self.tag == 982){
 				CALayer* layer = arg1;
 				for(CALayer* firstLayers in layer.sublayers){
 					if(firstLayers.backgroundColor){
@@ -214,19 +240,56 @@ void loadWeatherAnimation(){
 	}
 %end
 
-/* iOS 11.1.2 background showing fix */
+/* iOS 11.1.2 background showing fix needed for some 11.3 backgrounds as well*/
 %hook WUIWeatherCondition
 	-(CALayer *)layer{
-		if(hideBG && enabled){
-			if(deviceVersion < 11.3){
-				CALayer* layer = %orig;
-				for(CALayer* firstLayers in layer.sublayers){
-					if(firstLayers.backgroundColor){
-						firstLayers.backgroundColor = [UIColor clearColor].CGColor;
+		if(hideBG && enabled && self.alpha == 982){
+			CALayer* layer = %orig;
+			for(CALayer* firstLayers in layer.sublayers){
+				if(firstLayers.backgroundColor){
+					firstLayers.backgroundColor = [UIColor clearColor].CGColor;
+				}
+				for(CALayer* secLayers in firstLayers.sublayers){
+					if(deviceVersion >= 11.1 && deviceVersion < 11.3){
+						//NSLog(@"WTest num  %d", conditionNumberSet);
+						/*
+							11.1.2 (at night)
+							Cold condition number 25 
+							Mostly cloudy night	condition number 27
+							Mostly cloudy day condition number 28
+							Clear night condition number 31
+							Sunny condition number 32
+							shows black background, this removes it.
+						*/
+						if(!condition.city.isDay){
+							if(secLayers.backgroundColor){
+								if(conditionNumberSet == 25 || conditionNumberSet == 27 || conditionNumberSet == 28 || conditionNumberSet == 31 || conditionNumberSet == 32 || conditionNumberSet == 46){
+									secLayers.backgroundColor = [UIColor clearColor].CGColor;
+								}
+							}
+						}
 					}
-					for(CALayer* secLayers in firstLayers.sublayers){
-						for(CALayer* thrLayers in secLayers.sublayers){
-							if(![thrLayers isKindOfClass:[CAEmitterLayer class]]){
+					for(CALayer* thrLayers in secLayers.sublayers){
+						//NSLog(@"WTest style %@", thrLayers.name);
+						/* 
+							11.1.2 (night) clouds show a black box around clouds
+							Hiding the clouds here.
+						*/
+						if(deviceVersion >= 11.1 && deviceVersion < 11.3){
+							if(!condition.city.isDay){
+								if([thrLayers.name isEqualToString:@"💭 Background"]){
+									if(conditionNumberSet == 3 || conditionNumberSet == 4 || conditionNumberSet == 37 || conditionNumberSet == 47){
+										thrLayers.hidden = YES;
+									}
+								}
+								thrLayers.backgroundColor = [UIColor clearColor].CGColor;
+							}
+						}
+						if(![thrLayers isKindOfClass:[CAEmitterLayer class]] && ![thrLayers isKindOfClass:[CATransformLayer class]]){
+							if(thrLayers.backgroundColor){
+								thrLayers.backgroundColor = [UIColor clearColor].CGColor;
+							}
+							if([thrLayers isKindOfClass:[CAGradientLayer class]]){
 								thrLayers.hidden = YES;
 							}
 						}
@@ -277,18 +340,44 @@ void loadWeatherAnimation(){
 -(void)applicationDidFinishLaunching:(id)application{
     %orig;
     if(enabled){
-    	/* give weather time to initiate on device respring also stops background showing on iPX */
-    	dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 4);
+    	loadWeatherAnimation();
+    	/* for wake animation from respring */
+    	dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 1);
 		dispatch_after(delay, dispatch_get_main_queue(), ^(void){
-		    loadWeatherAnimation();
+		    [condition resume];
 		});
     }
 }
 - (_Bool)isShowingHomescreen{
-	if(showonsb && enabled){
+	bool showing = %orig;
+	if(showonsb && enabled && showing){
 		moveToSpringBoard();
+		[condition resume];
+	}else{
+		if(showonsb && enabled){
+			pauseAnimation();
+		}
 	}
 	return %orig;
+}
+%end
+
+%hook SBScreenWakeAnimationController
+- (void)_handleAnimationCompletionIfNecessaryForWaking:(_Bool)arg1 {
+    if (!arg1 && enabled) {
+    	[condition pause];
+    }else{
+    	if(enabled){
+    		[condition resume];
+    	}
+    }
+    %orig;
+}
+- (void)_startWakeAnimationsForWaking:(_Bool)arg1 animationSettings:(id)arg2 {
+    if (arg1 && enabled) {
+        [condition resume];
+    }
+    %orig;
 }
 %end
 
@@ -321,10 +410,14 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
     hideonnotification = (hidenotify) ? [hidenotify boolValue] : NO;
     usecondition = (usemanualcondition) ? [usemanualcondition boolValue] : NO;
     conditionNumber = (conditiontype) ? [conditiontype integerValue] : 0;
+
 }
 
 
 %ctor {
+	/* Make sure LPP and XenInfo are loaded */
+	//dlopen("/Library/MobileSubstrate/DynamicLibraries/lockplushtml.dylib", RTLD_NOW);
+
 	/* Settings */
 	notificationCallback(NULL, NULL, NULL, NULL, NULL);
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
@@ -344,12 +437,12 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
 		if (executablePath) {
 			NSString *processName = [executablePath lastPathComponent];
 			BOOL isSpringBoard = [processName isEqualToString:@"SpringBoard"];
-			BOOL isApplication = [executablePath rangeOfString:@"/Application"].location != NSNotFound;
-			if (isSpringBoard || isApplication) {
+			//BOOL isApplication = [executablePath rangeOfString:@"/Application"].location != NSNotFound;
+			if (isSpringBoard) {
 				/* Weather */
-				dlopen("System/Library/PrivateFrameworks/Weather.framework/Weather", RTLD_NOW);
+				dlopen("/System/Library/PrivateFrameworks/Weather.framework/Weather", RTLD_NOW);
 				/* WeatherUI */
-    			dlopen("System/Library/PrivateFrameworks/WeatherUI.framework/WeatherUI", RTLD_NOW);
+    			dlopen("/System/Library/PrivateFrameworks/WeatherUI.framework/WeatherUI", RTLD_NOW);
 			}
 		}
 	}

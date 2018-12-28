@@ -28,7 +28,7 @@
 			<key>default</key>
 			<false/>
 			<key>label</key>
-			<string>Enable LS Animations</string>
+			<string>Enable Tweak</string>
 			<key>PostNotification</key>
 			<string>com.junesiphone.weatheranimation/preferences.changed</string>
 		</dict>

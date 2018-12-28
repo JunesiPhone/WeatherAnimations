@@ -1,10 +1,19 @@
 #import <CoreLocation/CoreLocation.h>
 
+@interface City : NSObject
+@property (assign,nonatomic) BOOL isDay;   
+- (id)updateTime;
+@end
+
 /* Weathe background */
+
 @interface WUIWeatherCondition : NSObject
+-(City *)city;
 -(void)pause;
 -(void)resume;
 -(void)setCondition:(long long)arg1;
+-(double)alpha;
+-(void)setAlpha:(double)arg1 ;
 @end;
 
 @interface WUIDynamicWeatherBackground : UIView
@@ -24,9 +33,6 @@
 - (id)localWeatherCity;
 @end
 
-@interface City : NSObject
-- (id)updateTime;
-@end
 
 /* other weather */
 
@@ -40,8 +46,13 @@
 -(void)forceLocationUpdate;
 @end
 
+@interface WACurrentForecast
+@property (assign,nonatomic) long long conditionCode;
+@end
+
 @interface WAForecastModel : NSObject
 @property (nonatomic,retain) City * city;
+@property (nonatomic,retain) WACurrentForecast * currentConditions;
 @end
 
 @interface WATodayModel

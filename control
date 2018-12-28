@@ -1,7 +1,7 @@
 Package: com.junesiphone.weatheranimations
 Name: WeatherAnimations
 Depends: mobilesubstrate
-Version: 0.7
+Version: 0.8.4
 Architecture: iphoneos-arm
 Description: Weather app animations on the ls and sb
 Maintainer: June <junesgraphics@gmail.com>
